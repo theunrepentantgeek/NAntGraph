@@ -1,0 +1,291 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<project xmlns="http://nant.sf.net/release/0.85/nant.xsd"
+         name="NAntGraph2">
+
+  <!-- 
+       ========================================================================
+        Directories
+       ========================================================================
+       Define properties for common locations
+    -->
+
+  <property name="base.dir" value="${project::get-base-directory()}"/>
+
+  <property name="build.dir" value="${base.dir}\build"/>
+  <property name="debug.dir" value="${build.dir}\Debug"/>
+
+  <property name="res.dir" value="${base.dir}\res"/>
+  <property name="src.dir" value="${base.dir}\src"/>
+  <property name="bin.dir" value="${base.dir}\bin"/>
+  <property name="release.dir" value="${base.dir}\release"/>
+
+  <property name="sampleOutput.dir" value="${build.dir}\samples"/>
+
+  <!-- 
+       ========================================================================
+        File Sets
+       ========================================================================
+       Define file sets for reuse
+    -->
+
+  <fileset id="build.sample.files"
+           basedir="${base.dir}">
+    <include name="${res.dir}\samples\*.build"/>
+    <include name="${res.dir}\samples\*.xml"/>
+    <include name="*.build"/>
+  </fileset>
+
+  <!-- 
+       ========================================================================
+        Prerequisites
+       ========================================================================
+    -->
+
+  <!-- Ensure MSBuild is available -->
+  <property name="msbuild.dir"
+            value="C:\WINDOWS\Microsoft.NET\Framework\v4.0.30319"/>
+  <property name="msbuild.exe"
+            value="${path::combine(msbuild.dir, 'MSBuild.exe')}"/>
+  <fail message="MSBuild not fould in ${msbuild.dir}"
+        unless="${file::exists( msbuild.exe )}"/>
+
+  <!-- 
+       ========================================================================
+        Build
+       ========================================================================
+  -->
+
+  <target name="build"
+          description="Rebuild from scratch"
+          depends="clean, compile"/>
+
+  <!-- 
+       ========================================================================
+        Scrub
+       ========================================================================
+    -->
+
+  <target name="scrub"
+          description="Clean intermediate files and the bin directory"
+          depends="clean">
+
+    <!-- Remove Bin Directory -->
+    <delete>
+      <fileset basedir="${bin.dir}">
+        <include name="*.*"/>
+      </fileset>
+    </delete>
+    
+    <!-- Remove results of processing sample files -->
+    <delete>
+      <fileset basedir="${res.dir}">
+        <include name="samples/*.png"/>
+        <include name="samples/*.jpg"/>
+      </fileset>
+    </delete>
+    
+  </target>
+  
+  <!-- 
+       ========================================================================
+        Clean
+       ========================================================================
+    -->
+
+  <target name="clean"
+          description="Delete all intermediate files and the output of other tasks">
+
+    <!-- Make sure the build directory exists -->
+    <mkdir dir="${build.dir}"/>
+
+    <!-- Delete all the files out of the Build directory -->
+    <delete>
+      <fileset basedir="${build.dir}">
+        <include name="**/*"/>
+        <exclude name="**/*.vshost.exe"/>
+      </fileset>
+    </delete>
+
+    <delete failonerror="false">
+      <fileset basedir="${build.dir}">
+        <include name="**/*.vshost.exe"/>
+      </fileset>
+    </delete>
+
+    <!-- Delete intermediate files-->
+    <delete>
+      <fileset basedir="${src.dir}">
+        <include name="*/bin/**"/>
+        <include name="*/obj/**"/>
+      </fileset>
+    </delete>
+
+    <!-- Delete other transient files -->
+    <delete>
+      <fileset basedir="${base.dir}">
+        <include name="NAntGraph.sln.cache"/>
+        <include name="NantGraph.suo"/>
+      </fileset>
+    </delete>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Compile
+       ========================================================================
+  -->
+
+  <target name="compile"
+  	      description="Do all compilation steps"
+          depends="compile.assemblies"/>
+
+  <!-- 
+       ========================================================================
+        Compile.Version
+       ========================================================================
+  -->
+
+  <target name="compile.version"
+  	      description="Set up versioning for this build">
+
+    <!-- First, update the build number -->
+    <property name="date.projectStart" 
+              value="1 Nov 2008"/>
+    <property name="date.today" value="${ datetime::now() }"/>
+
+    <property name="ellapsed"
+              value="${ datetime::parse( date.today ) - datetime::parse( date.projectStart ) }"/>
+    <property name="days.ellapsed" value="${ math::floor( timespan::get-total-days( timespan::parse( ellapsed ) ) ) }"/>
+    <property name="hour.now"   value="${ datetime::get-hour( datetime::parse( date.today ) ) }"/>
+    <property name="minute.now" value="${ datetime::get-minute( datetime::parse( date.today ) ) }"/>
+    
+    <loadfile property="build.version"
+              file="${src.dir}\version.txt">
+        <filterchain>
+            <replacetokens>
+                <token key="build" value="${ days.ellapsed }"/>
+                <token key="version" value="${ hour.now }${ minute.now }"/>
+            </replacetokens>
+        </filterchain>
+    </loadfile>
+
+    <echo message="Version ${build.version}"/>
+    
+    <!-- Generate our shared AssemblyInfo file -->
+    <asminfo language="CSharp" output="src\VersionInfo.cs">
+      <imports>
+        <import namespace="System" />
+        <import namespace="System.Reflection" />
+      </imports>
+      <attributes>
+        <attribute type="AssemblyVersionAttribute" value="${build.version}" />
+        <attribute type="AssemblyFileVersionAttribute" value="${build.version}" />
+      </attributes>
+    </asminfo>
+
+  </target>
+
+    <!-- 
+       ========================================================================
+        Compile.Assemblies
+       ========================================================================
+  -->
+
+  <target name="compile.assemblies"
+          depends="compile.version"
+  	      description="Build output assemblies from source">
+
+    <!-- Compile everything -->
+    <exec program="${msbuild.exe}">
+      <arg file="NAntGraph2.sln"/>
+      <arg value="/t:rebuild"/>
+      <arg value="/verbosity:quiet"/>
+      <arg value="/p:Configuration=Debug"/>
+      <arg value='/p:Platform="Any CPU"'/>
+    </exec>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Release
+       ========================================================================
+    -->
+
+  <target name="release"
+          description="Build the release"
+          depends="scrub build">
+
+    <mkdir dir="${bin.dir}"/>
+    
+    <copy todir="${bin.dir}">
+      <fileset basedir="${build.dir}\Debug\NAntGraph2">
+        <include name="*"/>
+        <exclude name="*.pdb"/>
+      </fileset>
+    </copy>
+    
+    <mkdir dir="${release.dir}"/>
+
+    <zip zipfile="${release.dir}\NAntGraph-${build.version}-src.zip"
+         ziplevel="9">
+      <fileset basedir="${base.dir}">
+        <include name="**"/>
+        <exclude name="release/**"/>
+        <exclude name="build/**"/>
+        <exclude name="**/*.user"/>
+        <exclude name="**.suo"/>
+        <exclude name="**.cache"/>
+        <exclude name="_ReSharper.NAntGraph2/**"/>
+        <exclude name="**/obj/**"/>
+        <exclude name="**/bin/**"/>
+      </fileset>
+    </zip>
+
+    <zip zipfile="${release.dir}\NAntGraph-${build.version}-bin.zip"
+        ziplevel="9">
+      <fileset basedir="${bin.dir}">
+        <include name="**"/>
+      </fileset>
+    </zip>
+    
+  </target>
+
+  <!-- 
+       ========================================================================
+        Test Samples
+       ========================================================================
+    -->
+
+  <target name="test.samples"
+          description="For each sample file, generate the diagram"
+          depends="build">
+
+    <mkdir dir="${sampleOutput.dir}"/>
+    
+    <foreach item="File" property="sample.file">
+
+      <in>
+        <items refid="build.sample.files"/>
+      </in>
+
+      <do>
+        <echo message="Processing ${sample.file}"/>
+        
+        <property name="sample.filename" value="${path::get-file-name( sample.file )}"/>
+        <property name="output.filename" value="${path::change-extension( sample.filename, '.png')}"/>
+        
+        <exec program="${build.dir}\Debug\NantGraph2\NantGraph2.exe">
+          <!-- <arg value="/descriptions"/> -->
+          <arg file="${sample.file}"/>
+        </exec>
+      </do>
+      
+    </foreach>
+    
+    
+  </target>
+  
+</project>
