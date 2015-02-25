@@ -1,0 +1,480 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<project name="Rbnz.Fsis.Deploy"
+         basedir="."
+         xmlns="http://nant.sf.net/release/0.85/nant.xsd">
+
+  <!-- 
+       ========================================================================
+        Servers
+       ========================================================================
+       Define properties for common servers
+    -->
+
+  <!-- Username to use when authenticating against TeamCity -->
+  <property name="teamcity.user" value="FSISDeveloper"/>
+
+  <!-- Password to use when authenticating against TeamCity -->
+  <property name="teamcity.password" value="FSIS200807"/>
+  
+  <!-- 
+       ========================================================================
+        Directories
+       ========================================================================
+       Define properties for common locations
+    -->
+
+  <property name="base.dir" value="${project::get-base-directory()}"/>
+
+  <!-- Working directory for downloading and expanding packages -->
+  <property name="package.dir" value="${path::combine( base.dir, 'packages' )}"/>
+
+  <!-- Windows System Directory -->
+  <property name="system.dir" value="${environment::get-folder-path('System')}"/>
+
+  <!-- Program Files Directory -->
+  <property name="programFiles.dir" value="${environment::get-folder-path('ProgramFiles')}"/>
+  
+  <!-- 
+       ========================================================================
+        Prerequisites
+       ========================================================================
+    -->
+
+  <!-- ~~~~~~~~~~~~~~~~~~~
+        Require.Directory
+       ~~~~~~~~~~~~~~~~~~~ -->
+  
+  <target name="require.directory"
+          description="Require our working directories to exist">
+    <mkdir dir="${package.dir}"/>
+  </target>
+
+  <!-- ~~~~~~~~~~~~~~~~~
+        Require.MsiExec
+       ~~~~~~~~~~~~~~~~~ -->
+  
+  <target name="require.msiexec"
+          description="Require MsiExec to be available">
+    <property name="msiexec.exe" value="${path::combine( system.dir, 'msiexec.exe')}"/>
+    <fail message="${msiexec.exe} not found" unless="${file::exists( msiexec.exe )}"/>
+  </target>
+
+  <!-- ~~~~~~~~~~~~~~~~~~
+        Require.IisReset
+       ~~~~~~~~~~~~~~~~~~ -->
+
+  <target name="require.iisreset"
+          description="Require IISReset to be available">
+    <property name="iisreset.exe" value="${path::combine( system.dir, 'iisreset.exe')}"/>
+    <fail message="${iisreset.exe} not found" unless="${file::exists( iisreset.exe )}"/>
+  </target>
+
+  <!-- 
+       ========================================================================
+        Configure for which package to update
+       ========================================================================
+    -->
+
+  <!-- ~~~~~~~~
+        Server
+       ~~~~~~~~ -->
+
+  <target name="server"
+          description="Configure for updates to the server">
+
+    <property name="is.server" value="true"/>
+    
+    <!-- Working directory for package extraction -->
+    <property name="working.dir" value="${path::combine( package.dir, 'server')}"/>
+
+    <!-- URL to download updates from -->
+    <property name="teamcity.url" value="http://teamcity/httpAuth/repository/download/bt14/.lastSuccessful/package/server.zip"/>
+
+    <!-- Name for downloaded package -->
+    <property name="package.file" value="${path::combine( package.dir, 'server.zip')}"/>
+
+    <!-- Name of MSI file for installation -->
+    <property name="msi.file" value="${path::combine( working.dir, 'Rbnz.Fsis.Server.msi')}"/>
+
+    <!-- Name of installation directory -->
+    <property name="installation.dir" value="C:\Program Files\Reserve Bank of New Zealand\FSIS Server"/>
+    <!-- Note: Can't use $programFiles.dir as that will be the 32 bit version, not the 64 bit one -->
+
+    <!-- Name of configuration file -->
+    <property name="configuration.file" value="${path::combine( installation.dir, 'Web.config')}"/>
+
+    <!-- Name of NHibernate configuration file -->
+    <property name="nhibernate.file" value="${path::combine( installation.dir, 'bin\hibernate.cfg.xml')}"/>
+
+  </target>
+
+  <!-- ~~~~~~~~
+        Client
+       ~~~~~~~~ -->
+
+  <target name="client"
+          description="Configure for updates to the client">
+
+    <property name="is.client" value="true"/>
+    
+    <!-- Working directory for package extraction -->
+    <property name="working.dir" value="${path::combine( package.dir, 'client')}"/>
+
+    <!-- URL to download updates from -->
+    <property name="teamcity.url" value="http://teamcity/httpAuth/repository/download/bt13/.lastSuccessful/package/client.zip"/>
+
+    <!-- Name for downloaded package -->
+    <property name="package.file" value="${path::combine( package.dir, 'client.zip')}"/>
+
+    <!-- Name of MSI file for installation -->
+    <property name="msi.file" value="${path::combine( working.dir, 'Rbnz.Fsis.Client.msi')}"/>
+
+    <!-- Name of installation directory -->
+    <property name="installation.dir" value="${path::combine( programFiles.dir, 'Reserve Bank of New Zealand\FSIS Client')}"/>
+
+    <!-- Name of configuration file -->
+    <property name="configuration.file" value="${path::combine( installation.dir, 'Rbnz.Fsis.Ui.exe.config')}"/>
+    
+  </target>
+
+  <!-- ~~~~~~~~~~
+        Database
+       ~~~~~~~~~~ -->
+
+  <target name="database"
+          description="Configure for updates to the database">
+
+    <property name="is.database" value="true"/>
+    
+    <!-- Working directory for package extraction -->
+    <property name="working.dir" value="${path::combine( package.dir, 'database')}"/>
+
+    <!-- URL to download updates from -->
+    <property name="teamcity.url" value="http://teamcity/httpAuth/repository/download/bt14/.lastSuccessful/package/database.zip"/>
+
+    <!-- Name for downloaded package -->
+    <property name="package.file" value="${path::combine( package.dir, 'database.zip')}"/>
+
+  </target>
+
+  <!-- ~~~~~~~~~
+        Scripts
+       ~~~~~~~~~ -->
+
+  <target name="scripts"
+          description="Configure for updates to the deployment scripts">
+
+    <!-- Working directory for package extraction -->
+    <property name="working.dir" value="${path::combine( package.dir, 'scripts')}"/>
+
+    <!-- URL to download updates from -->
+    <property name="teamcity.url" value="http://teamcity/httpAuth/repository/download/bt14/.lastSuccessful/package/deploy.zip"/>
+
+    <!-- Name for downloaded package -->
+    <property name="package.file" value="${path::combine( package.dir, 'deploy.zip')}"/>
+
+  </target>
+  
+  <!-- 
+       ========================================================================
+        Clean
+       ========================================================================
+    -->
+
+  <target name="clean"
+          depends="require.directory">
+
+    <delete>
+      <fileset basedir="${package.dir}">
+        <include name="**/*"/>
+      </fileset>
+    </delete>
+    
+  </target>
+  
+  <!-- 
+       ========================================================================
+        Download.Package
+       ========================================================================
+    -->
+  
+  <target name="download.package"
+          description="Download the latest available version of a package"
+          depends="require.directory">
+
+    <get src="${teamcity.url}"
+         dest="${package.file}"
+         usetimestamp="true">
+      <credentials username="${teamcity.user}" 
+                   password="${teamcity.password}"/>
+    </get>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Check.Packages
+       ========================================================================
+    -->
+
+  <target name="extract.package"
+          description="Decompress the downloaded package if necessary"
+          depends="download.package">
+
+    <uptodate property="package.uptodate">
+      <sourcefiles basedir="${package.dir}">
+        <include name="${path::get-file-name( package.file )}"/>
+      </sourcefiles>
+      <targetfiles basedir="${working.dir}">
+        <include name="**.*"/>
+      </targetfiles>
+    </uptodate>
+
+    <echo message="Package is up to date" if="${package.uptodate}"/>
+
+    <unzip todir="${working.dir}" zipfile="${package.file}" unless="${package.uptodate}"/>
+
+    <touch>
+      <fileset basedir="${working.dir}">
+        <include name="**.*"/>
+      </fileset>
+    </touch>
+
+  </target>
+  
+  <!-- 
+       ========================================================================
+        Start.IIS
+       ========================================================================
+    -->
+
+  <target name="start.iis"
+          description="Start IIS running"
+          depends="require.iisreset">
+
+    <echo message="Starting IIS"/>
+
+    <exec program="${iisreset.exe}">
+      <arg value="-start"/>
+    </exec>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Stop.IIS
+       ========================================================================
+    -->
+
+  <target name="stop.iis"
+          description="Stop IIS from running"
+          depends="require.iisreset">
+
+    <echo message="Stopping IIS"/>
+
+    <exec program="${iisreset.exe}">
+      <arg value="-stop"/>
+    </exec>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Remove.MSI
+       ========================================================================
+    -->
+
+  <target name="remove.msi"
+          description="Remove any existing installation"
+          depends="require.msiexec">
+
+    <echo message="Removing old installation" if="${file::exists( msi.file ) and directory::exists( installation.dir )}"/>
+
+    <exec program="${msiexec.exe}" 
+          failonerror="false"
+          if="${file::exists( msi.file ) and directory::exists( installation.dir )}">
+      <arg value="/uninstall"/>
+      <arg file="${msi.file}"/>
+      <arg value="/passive"/>
+    </exec>
+
+    <delete if="${directory::exists( installation.dir )}">
+      <fileset basedir="${installation.dir}">
+        <include name="**/*"/>
+      </fileset>
+    </delete>
+
+    <delete dir="${installation.dir}" if="${directory::exists( installation.dir )}"/>
+
+    <echo message="Complete."/>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Install.Msi
+       ========================================================================
+    -->
+
+  <target name="install.msi"
+          description="Install the latest edition"
+          depends="remove.msi">
+
+    <echo message="Creating new installation" if="${file::exists( msi.file )}"/>
+      
+    <exec program="${msiexec.exe}" if="${file::exists( msi.file )}">
+      <arg value="/package"/>
+      <arg file="${msi.file}"/>
+      <arg value="/passive"/>
+    </exec>
+
+    <echo message="Complete."/>
+
+  </target>
+
+  <!-- 
+       ========================================================================
+        Configure.Server
+       ========================================================================
+    -->
+
+  <target name="configure.server"
+          description="Configure the installsed server"
+          depends="server">
+
+    <fail message="Define required database server on the commandline using -D:database=&lt;host&gt;"
+          unless="${property::exists('database')}"/>
+
+    <!-- Backup configuration files -->
+    <property name="configuration.backup"
+              value="${configuration.file}.bak"/>
+    <copy file="${configuration.file}"
+          tofile="${configuration.backup}"
+          unless="${file::exists( configuration.backup)}"/>
+
+    <property name="nhibernate.backup"
+              value="${nhibernate.file}.bak"/>
+    <copy file="${nhibernate.file}"
+          tofile="${nhibernate.backup}"
+          unless="${file::exists( nhibernate.backup)}"/>
+
+    <!-- Configure Location of AzMan Store -->
+    <echo message="Configuring ${configuration.file}"/>
+    <xmlpoke file="${configuration.file}"
+             xpath="/configuration/appSettings/add[@key='AzManStoreConnection']/@value"
+             value="msxml://${installation.dir}\AzManStore.xml"/>
+
+    <!-- Configure Connection String -->
+    <echo message="Configuring ${nhibernate.file}"/>
+
+    <xmlpoke file="${nhibernate.file}"
+             xpath="/x:hibernate-configuration/x:session-factory/x:property[@name='connection.connection_string']"
+             value="Server=${database};Database=FSISDB;Integrated Security=True;">
+      <namespaces>
+        <namespace prefix="x" uri="urn:nhibernate-configuration-2.2"/>
+      </namespaces>
+    </xmlpoke>
+    
+  </target>
+
+  <!-- 
+       ========================================================================
+        Configure.Client
+       ========================================================================
+    -->
+
+  <target name="configure.client"
+          description="Configure the installed client to use a specified server"
+          depends="client">
+
+    <fail message="Define required server on the commandline using -D:server=&lt;host&gt;" 
+          unless="${property::exists('server')}"/>
+
+    <!-- Backup configuration file -->
+    <property name="configuration.backup"
+              value="${configuration.file}.bak"/>
+    <copy file="${configuration.file}"
+          tofile="${configuration.backup}"
+          unless="${file::exists( configuration.backup)}"/>
+
+    <!-- Get existing endpoint address -->
+    <xmlpeek file="${configuration.file}"
+             xpath="/configuration/system.serviceModel/client/endpoint/@address"
+             nodeindex="1"
+             property="endpoint.url"/>
+    
+    <!-- Strip off protocol -->
+    <property name="endOfProtocol" value="${string::index-of( endpoint.url, ':') + 3}"/>
+    <property name="endpoint.server" value="${ string::substring( endpoint.url, int::parse(endOfProtocol), string::get-length(endpoint.url) - int::parse(endOfProtocol))}"/>
+    <property name="endOfServer" value="${string::index-of(endpoint.server, '/')}"/>
+    <property name="endpoint.server" 
+              value="${ string::substring( endpoint.server, 0, int::parse(endOfServer))}"/>
+
+    <!-- Reconfigure -->
+    
+    <copy file="${configuration.backup}"
+          tofile="${configuration.file}"
+          overwrite="true">
+      <filterchain>
+        <replacestring from="${endpoint.server}" to="${server}"/>
+      </filterchain>
+    </copy>
+    
+  </target>
+
+  <!-- 
+       ========================================================================
+        Reset.Database
+       ========================================================================
+    -->
+
+  <target name="reset.database"
+          description="Reset the database on the current machine"
+          depends="database extract.package">
+
+    <nant buildfile="${working.dir}\database.build"
+          target="with.default reset.database"/>
+
+  </target>
+  
+  <!-- 
+       ========================================================================
+        Install.Server
+       ========================================================================
+    -->
+
+  <target name="install.server"
+          description="Install the latest version of the server"
+          depends="server stop.iis remove.msi extract.package install.msi configure.server start.iis"/>
+
+  <!-- 
+       ========================================================================
+        Install.Client
+       ========================================================================
+    -->
+
+  <target name="install.client"
+          description="Install the latest version of the client"
+          depends="client remove.msi extract.package install.msi configure.client"/>
+
+
+  <!-- 
+       ========================================================================
+        Update.Scripts
+       ========================================================================
+    -->
+
+  <target name="update.scripts"
+          description="Update to the latest version of deployment scripts"
+          depends="scripts extract.package">
+
+    <copy todir="${base.dir}">
+      <fileset basedir="${working.dir}">
+        <include name="*"/>
+      </fileset>
+    </copy>
+    
+  </target>
+
+</project>

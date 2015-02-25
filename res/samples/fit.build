@@ -1,0 +1,247 @@
+<?xml version="1.0"?>
+<project name="fit" basedir="." default="normal">
+  <description>fit - Framework for integrated test (.NET implementation)</description>
+
+  <!-- input -->
+  <property name="root.dir" value="..\.." />  
+  <property name="doc.dir" value="${root.dir}\examples" />
+  <property name="spec.dir" value="${root.dir}\spec" />
+  <property name="source.dir" value="src" />
+  <property name="lib.dir" value="lib" />
+  <property name="nunit.path" value="${lib.dir}\nunit\nunit-console.exe" />
+  <property name="framework_test.class" value="fit.FrameworkTest" />
+  <property name="row_fixture_test.class" value="fit.RowFixtureTest" />
+  <property name="license.file" value="license.txt" />
+
+  <!-- output -->
+  <property name="output.dir" value="output" />
+  <property name="build.dir" value="${output.dir}\build" />
+  <property name="example.dir" value="${output.dir}\examples" />
+  <property name="spec-out.dir" value="${output.dir}\spec" />
+  <property name="release.dir" value="${output.dir}\release" />
+  <property name="fit_dll.path" value="${build.dir}\fit.dll" />
+  
+    
+  <!--*****
+  * dirs
+  *****--> 
+  <target name="dirs">
+    <mkdir dir="${build.dir}" />
+    <mkdir dir="${example.dir}" />
+    <mkdir dir="${spec-out.dir}" />
+    <mkdir dir="${release.dir}" />
+    <mkdir dir="${release.dir}\examples\input" />
+    <mkdir dir="${release.dir}\examples\output" />
+    <mkdir dir="${release.dir}\spec\input" />
+    <mkdir dir="${release.dir}\spec\output" />
+  </target>
+  
+  <!--*****
+  * keypair
+  *****-->  
+  <target name="keypair">
+    <exec program="sn" commandline="-d fit-dotnet" failonerror="false" />
+    <exec program="sn" commandline="-i fit.snk fit-dotnet"/>
+  </target>
+  
+  <!--*****
+  * compile_fit
+  *****--> 
+  <target name="compile_fit" depends="dirs, keypair">
+    <csc target="library" output="${fit_dll.path}" debug="true">
+      <sources basedir="${source.dir}\fit">
+        <includes name="**\*.cs" />
+        <excludes name="FileRunnerExe.cs" />
+        <excludes name="WikiRunner.cs" />
+      </sources>
+      <references>
+        <includes name="${lib.dir}\**\*.dll" />
+        <excludes name="${lib.dir}\nant\**" />
+      </references>
+    </csc>
+  </target>
+  
+  <!--*****
+  * compile_fat
+  *****--> 
+  <target name="compile_fat" depends="dirs">
+    <csc target="library" output="${build.dir}\fat.dll" debug="true">
+      <sources basedir="${source.dir}\fat">
+        <includes name="**\*.cs" />
+      </sources>
+      <references>
+        <includes name="${fit_dll.path}" />
+        <includes name="${lib.dir}\**\*.dll" />
+      </references>
+    </csc>
+  </target>
+  
+  <!--*****
+  * compile_eg
+  *****--> 
+  <target name="compile_eg" depends="dirs, compile_fit">
+    <csc target="library" output="${build.dir}\eg.dll" debug="true">
+      <sources basedir="${source.dir}\eg">
+        <includes name="**\*.cs" />
+      </sources>
+      <references>
+        <includes name="${lib.dir}\*.dll" />
+        <includes name="${fit_dll.path}" />
+      </references>
+    </csc>
+  </target>
+  
+  <!--*****
+  * compile_runFile
+  *****--> 
+  <target name="compile_runFile" depends="dirs, compile_fit">
+    <csc target="exe" output="${build.dir}\runFile.exe" debug="true">
+      <sources basedir="${source.dir}\fit">
+        <includes name="FileRunnerExe.cs" />
+      </sources>
+      <references>
+        <includes name="${lib.dir}\*.dll" />
+        <includes name="${fit_dll.path}" />
+      </references>
+    </csc>
+  </target>
+  
+  <!--*****
+  * compile_runWiki
+  *****--> 
+  <target name="compile_runWiki" depends="dirs, compile_fit">
+    <csc target="exe" output="${build.dir}\runWiki.exe" debug="true">
+      <sources basedir="${source.dir}\fit">
+        <includes name="WikiRunner.cs" />
+      </sources>
+      <references>
+        <includes name="${lib.dir}\*.dll" />
+        <includes name="${fit_dll.path}" />
+      </references>
+    </csc>
+  </target>
+  
+  <!--*****
+  * build
+  *****--> 
+  <target name="build" depends="compile_fit, compile_fat, compile_runFile, compile_runWiki, compile_eg" description="Build project">
+  </target>
+
+  <!--*****
+  * examples
+  *****--> 
+  <target name="examples" depends="build, dirs" description="Run examples">
+    <exec program="${build.dir}\runFile" commandline="${doc.dir}\arithmetic.html ${example.dir}\arithmetic.html ${build.dir}" failonerror="false" />
+    <exec program="${build.dir}\runWiki" commandline="${doc.dir}\CalculatorExample.html ${example.dir}\CalculatorExample.html ${build.dir}" failonerror="false" />
+    <exec program="${build.dir}\runWiki" commandline="${doc.dir}\MusicExample.html ${example.dir}\MusicExample.html ${build.dir}" failonerror="false" />
+  </target>
+  
+  <!--*****
+  * spec
+  *****--> 
+  <target name="spec" depends="build, dirs" description="Run Fit Specification">
+    <exec program="${build.dir}\runFile" commandline="${spec.dir}\index.html ${spec-out.dir}\index.html ${build.dir}" />
+  </target>
+
+  <!--*****
+  * test
+  *****--> 
+  <target name="test" depends="build" description="Test Fit">
+    <exec program="${nunit.path}" commandline="${fit_dll.path}" />
+  </target>
+  
+  <!--*****
+  * normal
+  *****--> 
+  <target name="normal" depends="build, test, spec" description="Do everyday build and test">
+  </target>
+  
+  <!--*****
+  * release
+  *****--> 
+  <target name="release" depends="clean, build, test, spec, examples" description="Create a tested release">
+    <copy todir="${release.dir}">
+      <fileset basedir="${build.dir}">
+        <includes name="*.exe" />
+        <includes name="*.dll" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}">
+      <fileset basedir="${source.dir}">
+        <includes name="${license.file}" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}">
+      <fileset basedir="doc">
+        <includes name="**" />
+      </fileset>
+    </copy>
+    
+    <copy todir="${release.dir}\examples\input">
+      <fileset basedir="${doc.dir}">
+        <includes name="**" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}\examples\output">
+      <fileset basedir="${example.dir}">
+        <includes name="**" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}\examples">
+      <fileset basedir="${source.dir}">
+        <includes name="eg\**" />
+      </fileset>
+    </copy>
+
+    <copy todir="${release.dir}\spec\input">
+      <fileset basedir="${spec.dir}">
+        <includes name="**" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}\spec\output">
+      <fileset basedir="${spec-out.dir}">
+        <includes name="**" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}\spec">
+      <fileset basedir="${source.dir}">
+        <includes name="fat\**" />
+      </fileset>
+    </copy>
+    
+    <copy todir="${release.dir}\source">
+      <fileset basedir="${root.dir}">
+        <includes name="**" />
+        <excludes name="imp\**" />
+      </fileset>
+    </copy>
+    <copy todir="${release.dir}\source">
+      <fileset basedir="${root.dir}">
+        <includes name="imp\dotnet\**" />
+        <excludes name="imp\dotnet\${output.dir}\**" />
+        <excludes name="imp\dotnet\*.snk" />
+      </fileset>
+    </copy>
+
+    <zip zipfile="${output.dir}\fit-dotnet.zip">
+      <fileset basedir="${release.dir}">
+        <includes name="**" />
+      </fileset>
+    </zip>
+  </target>
+  
+  <!--*****
+  * clean
+  *****--> 
+  <target name="clean" description="Delete generated files">
+    <mkdir dir="${output.dir}" failonerror="false" />
+    <delete dir="${output.dir}" />
+    <delete>
+      <fileset>
+        <includes name="**/bin/**/*" />
+        <includes name="**/obj/**/*" />
+      </fileset>
+    </delete>
+  </target>
+  
+</project>
