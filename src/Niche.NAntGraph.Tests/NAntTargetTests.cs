@@ -124,6 +124,21 @@ namespace Niche.NAntGraph.Tests
         }
 
         [Test]
+        public void FromXml_withSCalls_returnsNAntTargetWithDepends()
+        {
+            const string TargetName = "compile.target";
+            const string Depends = "compile.dependency";
+            var element
+                = new XElement(
+                    "target",
+                    new XAttribute("name", TargetName),
+                    new XElement("call", new XAttribute("target", Depends)));
+            var target = NAntTarget.FromXml(element);
+            Assert.That(target.Depends, Has.Member(Depends));
+        }
+
+        
+        [Test]
         [ExpectedException(typeof(ArgumentNullException))]
         public void Visit_missingVisitor_throwsException()
         {

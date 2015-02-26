@@ -66,6 +66,11 @@ namespace Niche.NAntGraph
             var depends = (string)element.Attribute("depends") 
                 ?? string.Empty;
 
+            var callers = element.DescendantNodes().Where(e => (e is XElement) &&  ((XElement) e).Name == "call");
+            var callerList = callers.Select(caller => (string) ((XElement) caller).Attribute("target") ?? "");
+
+            depends += string.Join(",", callerList);
+
             return new NAntTarget(name, description, depends);
         }
 
